@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
 import "./ERC165/IERC165.sol";
@@ -10,7 +11,7 @@ import "./utils/Strings.sol";
 import "./utils/Context.sol";
 import "./utils/Ownable.sol";
 import "./IERC20.sol";
-import "./IMasks.sol";
+import "./ISeeds.sol";
 import "./IERC721Enumerable.sol";
 
 /**
@@ -49,10 +50,10 @@ interface IERC721Receiver {
 }
 
 /**
- * @title Hashmasks contract
+ * @title MarsPool Land contract
  * @dev Extends ERC721 Non-Fungible Token Standard basic implementation
  */
-contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
+contract MarsPoolLand is Context, Ownable, ERC165, ISeeds, IERC721Metadata {
     using SafeMath for uint256;
     using Address for address;
     using EnumerableSet for EnumerableSet.UintSet;
@@ -61,20 +62,20 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
 
     // Public variables
 
-    // This is the provenance record of all Hashmasks artwork in existence
-    string public constant HASHMASKS_PROVENANCE = "df760c771ad006eace0d705383b74158967e78c6e980b35f670249b5822c42e1";
+    // This is the provenance record of all MarsPool Land artwork in existence
+    string public constant MARSPOOL_PROVENANCE = "49c2208f31b3c6ee68f04385ce82ca53";
 
-    uint256 public constant SALE_START_TIMESTAMP = 1614954923;
+    // 1620191105; // May 5th 5 am 5 hour 5 mints 5 seconds
+    uint256 public constant SALE_START_TIMESTAMP = 1618066553;
+    
 
-    // Time after which hash masks are randomized and allotted
-    uint256 public constant REVEAL_TIMESTAMP = SALE_START_TIMESTAMP + (86400 * 14);
+    // Bonus time and  which MarsPool Land will be randomized
+    uint256 public constant REVEAL_TIMESTAMP = SALE_START_TIMESTAMP + (86400 * 15);
 
     uint256 public constant NAME_CHANGE_PRICE = 1830 * (10 ** 18);
 
     uint256 public constant MAX_NFT_SUPPLY = 1786;
 	
-    uint256 public constant MAX_PUBLIC_NFT = 1782;	
-
     uint256 public startingIndexBlock;
 
     uint256 public startingIndex;
@@ -111,6 +112,8 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     // Mapping from token ID to agreement tenant
     mapping (uint256 => address) private _agreementTenant;  
     
+    // Mapping from tenant address to token id
+    mapping (address => uint256) private _agreementTenantAddress;  
 
     // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
     // which can be also obtained as `IERC721Receiver(0).onERC721Received.selector`
@@ -135,7 +138,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     // Mapping if certain name string has already been reserved
     mapping (string => bool) private _nameReserved;
 
-    // Mapping from token ID to whether the Hashmask was minted before reveal
+    // Mapping from token ID to whether the MarsPool Land was minted before reveal
     mapping (uint256 => bool) private _mintedBeforeReveal;
 
     // Mapping from owner to operator approvals
@@ -148,7 +151,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     string private _symbol;
 
     // Name change token address
-    address private _nctAddress;
+    address private _seedAddress;
 
     /*
      *     bytes4(keccak256('balanceOf(address)')) == 0x70a08231
@@ -184,23 +187,23 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     bytes4 private constant _INTERFACE_ID_ERC721_ENUMERABLE = 0x780e9d63;
 
     // Events
-    event NameChange (uint256 indexed maskIndex, string newName);
+    event NameChange (uint256 indexed tokenIndex, string newName);
 
     // Events
-    event RentalApproved (uint256 indexed maskIndex, address tenant);
+    event RentalApproved (uint256 indexed tokenIndex, address tenant);
 
     // Agreement Created for the tenant
-    event AgreementReady (uint256 indexed maskIndex, address tenant);
+    event AgreementReady (uint256 indexed tokenIndex, address tenant);
 
-    // Agreement already exist for the NFT
-    event AgreementExist (uint256 indexed maskIndex);
+    // Agreement already exist for the MarsPool Land
+    event AgreementExist (uint256 indexed tokenIndex);
     /**
-     * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
+     * @dev Initializes the contract by setting a name and a symbol to the token collection.
      */
-    constructor (string memory name, string memory symbol, address nctAddress) {
+    constructor (string memory name, string memory symbol, address seedAddress) {
         _name = name;
         _symbol = symbol;
-        _nctAddress = nctAddress;
+        _seedAddress = seedAddress;
 
         // register the supported interfaces to conform to ERC721 via ERC165
         _registerInterface(_INTERFACE_ID_ERC721);
@@ -227,7 +230,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
 
 
     /**
-     * @dev Returns address of the First owner of NFT at index.
+     * @dev Returns Initial Owner address of the MarsPool Land address at index.
      */
     function initialOwnerOf(uint256 tokenId) public view override returns (address initialOwner) {
         return _initialOwners.get(tokenId, "ERC721: owner query for nonexistent token");
@@ -272,14 +275,14 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     }
 
     /**
-     * @dev Returns name of the NFT at index.
+     * @dev Returns name of the MarsPool Land OwnerName at index.
      */
     function tokenNameByIndex(uint256 index) public view returns (string memory) {
         return _tokenName[index];
     }
 
     /**
-     * @dev Returns if the name has been reserved.
+     * @dev Returns if the Owner Name has been reserved.
      */
     function isNameReserved(string memory nameString) public view returns (bool) {
         return _nameReserved[toLower(nameString)];
@@ -293,40 +296,57 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     }
 
     /**
-     * @dev Gets current Hashmask Price
+     * @dev Gets current MarsPool Land Price
      */
     function getNFTPrice() public view returns (uint256) {
         require(block.timestamp >= SALE_START_TIMESTAMP, "Sale has not started");
-        require(totalSupply() < MAX_PUBLIC_NFT, "Sale has already ended");
+        require(totalSupply() < MAX_NFT_SUPPLY, "Sale has already ended");
 
         uint currentSupply = totalSupply();
-		// 1783 , 1784, 1785 Team Reserve
-        if (currentSupply >= 1780) {
-            return 10000000000000000000; 	// 1780 - 1782 	10 ETH
-        } else if (currentSupply >= 1530) {
-            return 2600000000000000000; 	// 1530 - 1779 		2.6 ETH
-        } else if (currentSupply >= 1180) {
-            return 1400000000000000000; 	// 1180  - 1529 	1.4 ETH
-        } else if (currentSupply >= 790) {
-            return 900000000000000000; 		// 790 - 1179 		0.9 ETH
-        } else if (currentSupply >= 450) {
-            return 500000000000000000; 		// 450 - 789 		0.5 ETH
-        } else if (currentSupply >= 200) {
-            return 300000000000000000; 		// 200 - 449 		0.3 ETH
+		
+        if (currentSupply >= 1535) {
+            return 400000000000000000; 	    // 1535 - 1785 	    4.0 BNB
+        } else if (currentSupply >= 1216) {
+            return 300000000000000000; 	    // 1216 - 1534 		3.0 BNB
+        } else if (currentSupply >= 907) {
+            return 250000000000000000; 	    // 907  - 1215 	    2.5 BNB
+        } else if (currentSupply >= 618) {
+            return 200000000000000000; 		// 618 - 906 		2.0 BNB
+        } else if (currentSupply >= 349) {
+            return 150000000000000000; 		// 349 - 617 		1.5 BNB
+        } else if (currentSupply >= 100) {
+            return 100000000000000000; 		// 100 - 348 		1.0 BNB
         } else {
-            return 100000000000000000; 		// 0 - 199 			0.1 ETH 
+            return 50000000000000000; 		    // 0 - 99 			0.5 BNB 
         }
+
+        /*
+        if (currentSupply >= 1535) {
+            return 4000000000000000000; 	    // 1535 - 1785 	    4.0 BNB
+        } else if (currentSupply >= 1216) {
+            return 3000000000000000000; 	    // 1216 - 1534 		3.0 BNB
+        } else if (currentSupply >= 907) {
+            return 2500000000000000000; 	    // 907  - 1215 	    2.5 BNB
+        } else if (currentSupply >= 618) {
+            return 2000000000000000000; 		// 618 - 906 		2.0 BNB
+        } else if (currentSupply >= 349) {
+            return 1500000000000000000; 		// 349 - 617 		1.5 BNB
+        } else if (currentSupply >= 100) {
+            return 1000000000000000000; 		// 100 - 348 		1.0 BNB
+        } else {
+            return 500000000000000000; 		    // 0 - 99 			0.5 BNB 
+        }*/
     }
 
     /**
-    * @dev Mints Masks
+    * @dev Mints MarsPool Lands
     */
     function mintNFT(uint256 numberOfNfts) public payable {
-        require(totalSupply() < MAX_PUBLIC_NFT, "Sale has already ended");
-        require(numberOfNfts > 0, "You may need to buy atleast 1 NFT");
-        require(numberOfNfts <= 5, "You may not buy more than 5 NFTs at once");
-        require(totalSupply().add(numberOfNfts) <= MAX_PUBLIC_NFT, "Exceeds MAX_PUBLIC_NFT");
-        require(getNFTPrice().mul(numberOfNfts) == msg.value, "Ether value sent is not correct");
+        require(totalSupply() < MAX_NFT_SUPPLY, "Sale has already ended");
+        require(numberOfNfts > 0, "You may need to buy atleast 1 LAND");
+        require(numberOfNfts <= 5, "You may not be able buy more than 5 LANDs at once");
+        require(totalSupply().add(numberOfNfts) <= MAX_NFT_SUPPLY, "Exceeds MAX_NFT_SUPPLY");
+        require(getNFTPrice().mul(numberOfNfts) == msg.value, "BSC value sent is not correct");
 
         for (uint i = 0; i < numberOfNfts; i++) {
             uint mintIndex = totalSupply();
@@ -339,7 +359,9 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         SALE_BALANCE = SALE_BALANCE + msg.value;
 
         /**
-        * Source of randomness. Theoretical miner withhold manipulation possible but should be sufficient in a pragmatic sense
+        * Source of randomness. 
+        * Theoretical miner withhold manipulation
+        * possible but should be sufficient in a pragmatic sense
         */
         if (startingIndexBlock == 0 && (totalSupply() == MAX_NFT_SUPPLY || block.timestamp >= REVEAL_TIMESTAMP)) {
             startingIndexBlock = block.number;
@@ -348,7 +370,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
 
 
     /**
-    * @dev Rental Deposit   _tokenName[tokenId] = newName;
+    * @dev Rental Deposit for a MarsPool Land by a new Tenant;
 
     */
     function rentDeposit(uint256 tokenId) public payable {
@@ -358,7 +380,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
          require(_tenantDeposit[tokenId] == 0," Already a tenant is waiting for rental approval !" );
          require(msg.value > 0," Deposit cannot be zero !" );
          
-         _tenant[tokenId] = msg.sender;        // Potential Tenenant
+         _tenant[tokenId] = msg.sender;        // Potential Tenant
          _tenantDeposit[tokenId] = msg.value;  // Amount sent as Deposit
     }
     
@@ -371,7 +393,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         require(_isOnRent[tokenId] == false," Your rental agreement is in progress !" );
         
 
-        // If rental agreement is still not started then transfer the deposit        
+        // If rental agreement not started then transfer the deposit        
         msg.sender.transfer(_tenantDeposit[tokenId]);
         
         _tenantDeposit[tokenId] = 0; // Reset amount to zero
@@ -388,6 +410,13 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         return (_tenant[index],_tenantDeposit[index]);
     }
     
+    /**
+     * @dev Retunrs the token id if there is an agreement for the address
+     */ 
+    function getAgreementByAddress(address tenantAddress) public view returns (uint256)
+    {
+        return (_agreementTenantAddress[tenantAddress]);
+    }     
 
     /**
      * @dev Returns Agreement between owner and tenant for approval
@@ -403,7 +432,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     }        
     
     /**
-     * @dev Returns name of the NFT at index.
+     * @dev Returns Owner name of Land at index.
      *     function tenantOf(uint256 index) public view override returns (address tenantAddress) 
      */
     function tenantOf(uint256 index) public view override returns (address tenantAddress)  {
@@ -420,8 +449,8 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     */
     function ApproveAgreement(uint256 tokenId) public {
         
-        require(msg.sender == _tenant[tokenId]," You don't have any rental deposits for the Token !" );
-        require(msg.sender == _agreementTenant[tokenId]," Request NFT owner for rental agreement !" );
+        require(msg.sender == _tenant[tokenId]," You don't have any rental deposits for the LAND token !" );
+        require(msg.sender == _agreementTenant[tokenId]," Request LAND owner for rental agreement !" );
         require(_isOnRent[tokenId] != true," Your rental agreement is in progress !" );
         require(_agreementExpiry[tokenId] > block.timestamp, "Agreement already expired !");
 
@@ -430,59 +459,60 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         _approvedTenant[tokenId] = msg.sender;  // Now,tenant  will start getting the revenue
         _isOnRent[tokenId] = true;
 
+
     }  
         
     
     /**
-     * @dev Set the rental period and tenant for the NFT tokenId
+     * @dev Set the rental period and tenant for the MarsPool Land tokenId
+     *      Only LAND Owner can signAgreement
      */
-    function rentalAgreement(uint256 tokenId, uint256 start_time , uint256 end_time, address agreementTenant) public {
+    function signAgreement(uint256 tokenId, uint256 start_time , uint256 end_time, address agreementTenant) public {
         address owner = ownerOf(tokenId);
         
         require(msg.sender == owner, "ERC721: caller is not the owner");
         require(block.timestamp < start_time, "Rental start time should be in future !");
         require(block.timestamp < end_time, "Rental end time should be in future !");
-        require(start_time < end_time, "StartTime cannot be more than EndTime !");
+        require(start_time < end_time, "Start Time cannot be more than EndTime !");
 
-        //require(owner != agreementTenant, "You cannot rent yourself !");        
+        require(owner != agreementTenant, "You cannot rent yourself !");        
         
-        if(_approvedTenant[tokenId] != address(0)) // Claim Rent
+
+        if(_approvedTenant[tokenId] != address(0)) // Claim Rent for approved agreement
         {
-             //Claim any pending rental 
+             // Claim any pending rental send to owner
             if(_tenantDeposit[tokenId] > 0)
             {
                 msg.sender.transfer(_tenantDeposit[tokenId]);
                 _tenantDeposit[tokenId] = 0; // Reset amount to zero
             }
         }
-
+        
         // Check is there is any expired tenancy 
         if(block.timestamp > _rent_end[tokenId])
         {
             _approvedTenant[tokenId] = address(0);  // Remove the tenant
             _isOnRent[tokenId] = false;
-            _agreementTenant[tokenId] = address(0);  
+            _agreementTenant[tokenId] = address(0);
+            _agreementTenantAddress[agreementTenant] = 0; // Reset the Token id 
         }   
        
-       //require(_agreementExpiry[tokenId] < block.timestamp, "There is an agreement already, wait for expiry !");
        
-       if(_agreementExpiry[tokenId] > block.timestamp)
+       if(_agreementTenant[tokenId] == address(0))
        {
         _approvedTenant[tokenId] = address(0);
         _rent_start[tokenId] = start_time;
         _rent_end[tokenId] = end_time;
-        _agreementExpiry[tokenId] = block.timestamp + (15 * 60); // 15 minutes from now
+        _agreementExpiry[tokenId] = block.timestamp + (15 * 60); // Waiting time 15 minutes 
         _agreementTenant[tokenId] = agreementTenant;
+        _agreementTenantAddress[agreementTenant] = tokenId;
         emit AgreementReady(tokenId, agreementTenant);
        } 
        else
        {
         emit AgreementExist(tokenId);
        }
-
-        
-    }    
-    
+    }   
 
     /**
      * @dev Finalize starting index
@@ -503,7 +533,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     }
 
     /**
-     * @dev Changes the name for Hashmask tokenId
+     * @dev Name change for MarsPool Land for a NFT tokenId
      */
     function changeName(uint256 tokenId, string memory newName) public {
         address owner = ownerOf(tokenId);
@@ -513,14 +543,14 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         require(sha256(bytes(newName)) != sha256(bytes(_tokenName[tokenId])), "New name is same as the current one");
         require(isNameReserved(newName) == false, "Name already reserved");
 
-        IERC20(_nctAddress).transferFrom(msg.sender, address(this), NAME_CHANGE_PRICE);
+        IERC20(_seedAddress).transferFrom(msg.sender, address(this), NAME_CHANGE_PRICE);
         // If already named, dereserve old name
         if (bytes(_tokenName[tokenId]).length > 0) {
             toggleReserveName(_tokenName[tokenId], false);
         }
         toggleReserveName(newName, true);
         _tokenName[tokenId] = newName;
-        IERC20(_nctAddress).burn(NAME_CHANGE_PRICE);
+        IERC20(_seedAddress).burn(NAME_CHANGE_PRICE);
         emit NameChange(tokenId, newName);
     }
 
@@ -536,32 +566,7 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         SALE_BALANCE = 0;
     }
     
-    /**
-     * @dev Withdraw last 3 NFTs from the contract (Callable by owner) 1783 , 1784 , 1785
-    */
-    function withdrawTeamNFTs() onlyOwner public {
-        require(totalSupply() > MAX_PUBLIC_NFT, "Team Tokens claimed !");
-
-        for (uint i = 0; i < 3; i++) {
-            uint mintIndex = totalSupply();
-            if (block.timestamp < REVEAL_TIMESTAMP) {
-                _mintedBeforeReveal[mintIndex] = true;
-            }
-            _safeMint(msg.sender, mintIndex);
-        }
-
-        /**
-        * Source of randomness. Theoretical miner withhold manipulation possible but should be sufficient in a pragmatic sense
-        */
-        if (startingIndexBlock == 0 && (totalSupply() == MAX_NFT_SUPPLY || block.timestamp >= REVEAL_TIMESTAMP)) {
-            startingIndexBlock = block.number;
-        }		
-		
-		withdraw();
-    }
-
-
-    /**
+     /**
      * @dev See {IERC721-approve}.
      */
     function approve(address to, uint256 tokenId) public virtual override {
@@ -575,6 +580,14 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
         _approve(to, tokenId);
     }
 
+    /**
+        Return the Block time useful in Localhost
+    **/
+    
+    function getBlockTime() public view returns (uint256)
+    {
+        return block.timestamp;
+    }
     /**
      * @dev See {IERC721-getApproved}.
      */
@@ -712,6 +725,8 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
     function _mint(address to, uint256 tokenId) internal virtual {
         require(to != address(0), "ERC721: mint to the zero address");
         require(!_exists(tokenId), "ERC721: token already minted");
+        require(totalSupply() < MAX_NFT_SUPPLY, "Sale has already ended");
+
 
         _beforeTokenTransfer(address(0), to, tokenId);
 
@@ -883,7 +898,4 @@ contract TamilCinema is Context, Ownable, ERC165, IMasks, IERC721Metadata {
 
         return true;
     }   
-
-
-
 }

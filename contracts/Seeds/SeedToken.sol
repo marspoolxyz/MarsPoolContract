@@ -1,40 +1,41 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
 import "../ERC165/IERC165.sol";
 import "../utils/SafeMath.sol";
 import "../IERC20.sol";
-import "../IMasks.sol";
+import "../ISeeds.sol";
 import "../utils/Context.sol";
 
 /**
  *
- * NameChangeToken Contract (The native token of Hashmasks)
+ * Seeds Contract (Seeds can be harvested only by owning NFT)
  * @dev Extends standard ERC20 contract
  */
-contract FansToken  is Context, IERC20 {
+contract SeedToken  is Context, IERC20 {
     using SafeMath for uint256;
 
     // Constants
     uint256 public SECONDS_IN_A_DAY = 86400;
 
-    uint256 public constant INITIAL_ALLOTMENT = 1500 * (10 ** 18);
+    uint256 public constant INITIAL_ALLOTMENT = 500 * (10 ** 18);
 
     uint256 public constant PRE_REVEAL_MULTIPLIER = 2;
 
     // Public variables
-    uint256 public emissionStart;
+    uint256 public harvestStart;
 
-    uint256 public emissionEnd; 
+    uint256 public harvestEnd; 
 
-    uint256 public emissionPerDay = 10 * (10 ** 18);
+    uint256 public seedsPerDay = 10 * (10 ** 18);
 
     mapping (address => uint256) private _balances;
 
     mapping (address => mapping (address => uint256)) private _allowances;
     
-    mapping(uint256 => uint256) private _lastClaim;
+    mapping(uint256 => uint256) private _lastharvest;
 
-    //  Royal Parameters
+    //  Royalty Parameters
     // mapping(uint256 => address) private _initialOwners;
     // mapping (address => uint256) private _royaltyValue;
     
@@ -46,23 +47,23 @@ contract FansToken  is Context, IERC20 {
     string private _name;
     string private _symbol;
     uint8 private _decimals;
-    address private _masksAddress;
+    address private _MarsPoolLandAddress;
 
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
-     * a default value of 18. Also initalizes {emissionStart}
+     * a default value of 18. Also initalizes {harvestStart}
      *
      * To select a different value for {decimals}, use {_setupDecimals}.
      *
      * All three of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor (string memory name, string memory symbol, uint256 emissionStartTimestamp) {
-        _name = name;
-        _symbol = symbol;
+    constructor (string memory token_name, string memory token_symbol, uint256 harvestStartTimestamp) {
+        _name = token_name;
+        _symbol = token_symbol;
         _decimals = 18;
-        emissionStart = emissionStartTimestamp;
-        emissionEnd = emissionStartTimestamp + (86400 * 365 * 10);
+        harvestStart = harvestStartTimestamp;
+        harvestEnd = harvestStartTimestamp + (86400 * 365 * 5);
     }
 
     /**
@@ -112,35 +113,35 @@ contract FansToken  is Context, IERC20 {
     }
     
     /**
-     * @dev When accumulated NCTs have last been claimed for a Hashmask index
+     * @dev When matured SEEDs have last been harvested for a MarsPool Land index
      */
-    function lastClaim(uint256 tokenIndex) public view returns (uint256) {
-        require(IMasks(_masksAddress).ownerOf(tokenIndex) != address(0), "Owner cannot be 0 address");
-        require(tokenIndex < IMasks(_masksAddress).totalSupply(), "NFT at index has not been minted yet");
+    function lastharvest(uint256 tokenIndex) public view returns (uint256) {
+        require(ISeeds(_MarsPoolLandAddress).ownerOf(tokenIndex) != address(0), "Owner cannot be 0 address");
+        require(tokenIndex < ISeeds(_MarsPoolLandAddress).totalSupply(), "MarsPool Land at index has not been minted yet");
 
-        uint256 lastClaimed = uint256(_lastClaim[tokenIndex]) != 0 ? uint256(_lastClaim[tokenIndex]) : emissionStart;
-        return lastClaimed;
+        uint256 lastHarvest = uint256(_lastharvest[tokenIndex]) != 0 ? uint256(_lastharvest[tokenIndex]) : harvestStart;
+        return lastHarvest;
     }
     
     /**
-     * @dev Accumulated NCT tokens for a Hashmask token index.
+     * @dev Ready to harvest SEED tokens for a MarsPool Land token index.
      */
     function accumulated(uint256 tokenIndex) public view returns (uint256) {
-        require(block.timestamp > emissionStart, "Emission has not started yet");
-        require(IMasks(_masksAddress).ownerOf(tokenIndex) != address(0), "Owner cannot be 0 address");
-        require(tokenIndex < IMasks(_masksAddress).totalSupply(), "NFT at index has not been minted yet");
+        require(block.timestamp > harvestStart, "Harvest has not started yet");
+        require(ISeeds(_MarsPoolLandAddress).ownerOf(tokenIndex) != address(0), "Owner cannot be 0 address");
+        require(tokenIndex < ISeeds(_MarsPoolLandAddress).totalSupply(), "MarsPool Land at index has not been minted yet");
 
-        uint256 lastClaimed = lastClaim(tokenIndex);
+        uint256 lastHarvest = lastharvest(tokenIndex);
 
-        // Sanity check if last claim was on or after emission end
-        if (lastClaimed >= emissionEnd) return 0;
+        // When was the last harvest
+        if (lastHarvest >= harvestEnd) return 0;
 
-        uint256 accumulationPeriod = block.timestamp < emissionEnd ? block.timestamp : emissionEnd; // Getting the min value of both
-        uint256 totalAccumulated = accumulationPeriod.sub(lastClaimed).mul(emissionPerDay).div(SECONDS_IN_A_DAY);
+        uint256 accumulationPeriod = block.timestamp < harvestEnd ? block.timestamp : harvestEnd; // Getting the min value of both
+        uint256 totalAccumulated = accumulationPeriod.sub(lastHarvest).mul(seedsPerDay).div(SECONDS_IN_A_DAY);
 
-        // If claim hasn't been done before for the index, add initial allotment (plus prereveal multiplier if applicable)
-        if (lastClaimed == emissionStart) {
-            uint256 initialAllotment = IMasks(_masksAddress).isMintedBeforeReveal(tokenIndex) == true ? INITIAL_ALLOTMENT.mul(PRE_REVEAL_MULTIPLIER) : INITIAL_ALLOTMENT;
+        // If harvest hasn't been done before for the Land(index), add initial allotment (plus prereveal multiplier if applicable)
+        if (lastHarvest == harvestStart) {
+            uint256 initialAllotment = ISeeds(_MarsPoolLandAddress).isMintedBeforeReveal(tokenIndex) == true ? INITIAL_ALLOTMENT.mul(PRE_REVEAL_MULTIPLIER) : INITIAL_ALLOTMENT;
             totalAccumulated = totalAccumulated.add(initialAllotment);
         }
 
@@ -148,57 +149,57 @@ contract FansToken  is Context, IERC20 {
     }
 
     /**
-     * @dev Permissioning not added because it is only callable once. It is set right after deployment and verified.
+     * @dev Permissioning not added because it is only callable once.
+     * It is set right after deployment and verified.
      */
-    function setMasksAddress(address masksAddress) public {
-        require(_masksAddress == address(0), "Already set");
+    function setLandAddress(address MarsPoolLandAddress) public {
+        require(_MarsPoolLandAddress == address(0), "Already set");
         
-        _masksAddress = masksAddress;
+        _MarsPoolLandAddress = MarsPoolLandAddress;
     }
     
     /**
-     * @dev Claim mints NCTs and supports multiple Hashmask token indices at once.
+     * @dev Harvest SEEDs from more than one MarsPool Land indices at once
      */
-    function claim(uint256[] memory tokenIndices) public returns (uint256) {
-        require(block.timestamp > emissionStart, "Emission has not started yet");
+    function harvest(uint256[] memory tokenIndices) public returns (uint256) {
+        require(block.timestamp > harvestStart, "Emission has not started yet");
 
-        uint256 totalClaimQty = 0;
-        address owner = IMasks(_masksAddress).ownerOf(tokenIndices[0]); 
+        uint256 totalharvestQty = 0;
+        address owner = ISeeds(_MarsPoolLandAddress).ownerOf(tokenIndices[0]); 
 
         for (uint i = 0; i < tokenIndices.length; i++) {
             // Sanity check for non-minted index
-            require(tokenIndices[i] < IMasks(_masksAddress).totalSupply(), "NFT at index has not been minted yet");
+            require(tokenIndices[i] < ISeeds(_MarsPoolLandAddress).totalSupply(), "LAND at index has not been minted yet");
             // Duplicate token index check
             for (uint j = i + 1; j < tokenIndices.length; j++) {
                 require(tokenIndices[i] != tokenIndices[j], "Duplicate token index");
             }
 
             uint tokenIndex = tokenIndices[i];
-            address currentTenant = IMasks(_masksAddress).tenantOf(tokenIndex); // Is NFT rented ?
+            address currentTenant = ISeeds(_MarsPoolLandAddress).tenantOf(tokenIndex); // Is NFT rented ?
  
-            // NFT Owner or Tenant can only claim the rewards 
-            // Need to Fix
+            // LAND Owner or Tenant can only harvest the SEEDs 
             if(currentTenant == address(0))
             {
-                require(IMasks(_masksAddress).ownerOf(tokenIndex) == msg.sender, "Sender is not the owner");
+                require(ISeeds(_MarsPoolLandAddress).ownerOf(tokenIndex) == msg.sender, "Sender is not the owner");
             }
             else
             {
                 
-                require(IMasks(_masksAddress).tenantOf(tokenIndex) == currentTenant, "Sender is not the owner");
+                require(ISeeds(_MarsPoolLandAddress).tenantOf(tokenIndex) == currentTenant, "Sender is not the owner");
             }
             /***************************************************/
             
-            uint256 claimQty = accumulated(tokenIndex);            
+            uint256 harvestQty = accumulated(tokenIndex);            
             
-            address initialOwner = IMasks(_masksAddress).initialOwnerOf(tokenIndex);
+            address initialOwner = ISeeds(_MarsPoolLandAddress).initialOwnerOf(tokenIndex);
             
-            if(initialOwner != address(0) && IMasks(_masksAddress).ownerOf(tokenIndex) != initialOwner)
+            if(initialOwner != address(0) && ISeeds(_MarsPoolLandAddress).ownerOf(tokenIndex) != initialOwner)
             {
                 // The current token was sold in secondary market, we know the initial owner
 
-                 uint256 royaltyValue  = claimQty * 20 / 100; // 20% royalty to the initial owner
-                 claimQty = claimQty - royaltyValue;      
+                 uint256 royaltyValue  = harvestQty * 20 / 100; // 20% royalty to the initial owner
+                 harvestQty = harvestQty - royaltyValue;      
                   if (royaltyValue != 0) {
                     _mint(initialOwner, royaltyValue); 
                   }
@@ -207,24 +208,24 @@ contract FansToken  is Context, IERC20 {
             // Calculate the tenantShare from the 80% or 100%
             if(currentTenant != address(0))
             {
-                uint256  ownershipLoyalty  = claimQty * 10 / 100; // 10% royalty to the current owner
-                uint256 tenantShare = claimQty - ownershipLoyalty;      
-                claimQty = ownershipLoyalty;        // 10% from the (80% or 100%) of the original rewards
+                uint256  ownershipLoyalty  = harvestQty * 10 / 100; // 10% royalty to the current owner
+                uint256 tenantShare = harvestQty - ownershipLoyalty;      
+                harvestQty = ownershipLoyalty;        // 10% from the (80% or 100%) of the original rewards
                 
                 _mint(currentTenant, tenantShare);  // 90% from the (80% or 100%) of the original rewards 
                 
             }
             
-            if (claimQty != 0) {
-                totalClaimQty = totalClaimQty.add(claimQty);  // 80% to the current owner
-                _lastClaim[tokenIndex] = block.timestamp;
+            if (harvestQty != 0) {
+                totalharvestQty = totalharvestQty.add(harvestQty);  // 80% to the current owner
+                _lastharvest[tokenIndex] = block.timestamp;
             }
         }
 
-        require(totalClaimQty != 0, "No accumulated NCT");
+        require(totalharvestQty != 0, "No SEEDs to harvest");
         
-        _mint(owner, totalClaimQty); 
-        return totalClaimQty;
+        _mint(owner, totalharvestQty); 
+        return totalharvestQty;
     }
 
     /**
@@ -275,7 +276,7 @@ contract FansToken  is Context, IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
         _transfer(sender, recipient, amount);
         // Approval check is skipped if the caller of transferFrom is the Hashmasks contract. For better UX.
-        if (msg.sender != _masksAddress) {
+        if (msg.sender != _MarsPoolLandAddress) {
             _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
         }
         return true;
