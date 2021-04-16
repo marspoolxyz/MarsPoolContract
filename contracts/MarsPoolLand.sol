@@ -305,23 +305,6 @@ contract MarsPoolLand is Context, Ownable, ERC165, ISeeds, IERC721Metadata {
         uint currentSupply = totalSupply();
 		
         if (currentSupply >= 1535) {
-            return 400000000000000000; 	    // 1535 - 1785 	    4.0 BNB
-        } else if (currentSupply >= 1216) {
-            return 300000000000000000; 	    // 1216 - 1534 		3.0 BNB
-        } else if (currentSupply >= 907) {
-            return 250000000000000000; 	    // 907  - 1215 	    2.5 BNB
-        } else if (currentSupply >= 618) {
-            return 200000000000000000; 		// 618 - 906 		2.0 BNB
-        } else if (currentSupply >= 349) {
-            return 150000000000000000; 		// 349 - 617 		1.5 BNB
-        } else if (currentSupply >= 100) {
-            return 100000000000000000; 		// 100 - 348 		1.0 BNB
-        } else {
-            return 50000000000000000; 		    // 0 - 99 			0.5 BNB 
-        }
-
-        /*
-        if (currentSupply >= 1535) {
             return 4000000000000000000; 	    // 1535 - 1785 	    4.0 BNB
         } else if (currentSupply >= 1216) {
             return 3000000000000000000; 	    // 1216 - 1534 		3.0 BNB
@@ -335,7 +318,8 @@ contract MarsPoolLand is Context, Ownable, ERC165, ISeeds, IERC721Metadata {
             return 1000000000000000000; 		// 100 - 348 		1.0 BNB
         } else {
             return 500000000000000000; 		    // 0 - 99 			0.5 BNB 
-        }*/
+        }
+
     }
 
     /**
